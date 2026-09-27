@@ -1,0 +1,13 @@
+# Only what the image needs goes into the build context
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+tests
+.env
+*.env
+*.md
+requirements.in
+requirements-dev.*

@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets and local config: never committed
+.env
+*.env
+
+# Terraform (task 4): state and plans can contain secrets and resource details
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Local tooling caches
+.impeccable/
