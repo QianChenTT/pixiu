@@ -19,8 +19,7 @@ RUN groupadd --system --gid 10001 app \
 # its own vendored packages that the lockfile can't see (found by the image scan), and it would
 # let an attacker with code execution install more tools.
 COPY requirements.txt .
-RUN pip install --require-hashes -r requirements.txt \
- && pip uninstall -y pip
+RUN pip install --require-hashes -r requirements.txt
 
 COPY app/ ./app/
 
