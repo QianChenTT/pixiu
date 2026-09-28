@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Python dependencies (requirements.in → hash-locked requirements.txt)
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    # Wait before proposing a new release: a malicious version is usually caught and pulled
+    # within hours or days (Trivy v0.69.4 was live for about three hours)
+    cooldown:
+      default-days: 7
+
+  # Base image digest in the Dockerfile
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  # Action SHAs in .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
