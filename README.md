@@ -1,20 +1,16 @@
-# xiezhi
+# pixiu
 
-A small Python (FastAPI) service built to practice secure-by-design engineering end to end: container, CI security gates, Kubernetes, infrastructure as code, keyless deploys, secure API design and detection.
+The company inside Shanhai, a hands-on security engineering lab: a small version of a real SaaS company, built to be attacked, detected and rebuilt, with every control verified before it counts. It starts as one hardened service and grows into the company a slice at a time.
 
-Named after the 獬豸 (xiezhi), the mythical creature that tells right from wrong.
+Named after the 貔貅 (pixiu), the treasure guardian that takes gold in and never lets it out. The repo was called xiezhi until September 2026.
 
 ## Status
 
 | Layer | State |
 |---|---|
 | Service + hardened container | done |
-| CI security gates | in progress |
-| Kubernetes (local) with security controls | planned |
-| Terraform (AWS) + IaC scanning | planned |
-| Keyless deploys (GitHub OIDC → AWS) | planned |
-| Secure API features (authz, idempotency) | planned |
-| Logging + detections | planned |
+| CI security gates, each proven by a failing PR | done |
+| The rest of the company (cloud platform, product, detections) | in progress |
 
 ## Design notes
 

@@ -85,18 +85,18 @@ jobs:
           # (checkout v6+ writes it to a file under RUNNER_TEMP)
           persist-credentials: false
       - name: build image
-        run: docker build -t xiezhi:ci .
+        run: docker build -t pixiu:ci .
       - name: export image
         # A dedicated folder: Trivy is given this folder only, not the rest of RUNNER_TEMP
-        run: mkdir "$RUNNER_TEMP/image" && docker save xiezhi:ci -o "$RUNNER_TEMP/image/xiezhi.tar"
+        run: mkdir "$RUNNER_TEMP/image" && docker save pixiu:ci -o "$RUNNER_TEMP/image/pixiu.tar"
       # Report: every finding, including ones with no fix yet, for visibility. Never fails
       - name: image report (all severities)
         run: >
           docker run --rm -v "$RUNNER_TEMP/image:/scan:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
-          image --input /scan/xiezhi.tar --scanners vuln --exit-code 0
+          image --input /scan/pixiu.tar --scanners vuln --exit-code 0
       # Gate policy: fail only on HIGH/CRITICAL that have a fix available
       - name: image gate (HIGH+ with a fix)
         run: >
           docker run --rm -v "$RUNNER_TEMP/image:/scan:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
-          image --input /scan/xiezhi.tar --scanners vuln
+          image --input /scan/pixiu.tar --scanners vuln
           --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
