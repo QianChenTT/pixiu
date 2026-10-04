@@ -1,11 +1,19 @@
 # Base image pinned by digest (the tag is for humans): a tag can be moved to a different image,
 # a digest can't. Dependabot/Renovate will propose bumps as PRs that go through the CI gate.
-FROM python:3.13-slim@sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b
+FROM python:3.13-slim@sha256:3dd7cc108ec1493442514f5c2a871af6af0ec31d768ff6e378a93340c3b3db5f
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Security fast lane (2026-10-04): this base digest still ships libpcre2-8-0 10.46-1~deb13u2, which
+# has a fixable HIGH (CVE-2026-103111, out-of-bounds write via a crafted regular expression) and
+# fails the image-scan gate. Upgrade only that package, the rest of the base stays as pinned.
+# Remove this step once a base digest bump carries 10.46-1~deb13u3 or later
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
