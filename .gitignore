@@ -13,6 +13,10 @@ __pycache__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+# Values that stay on Han's machine: the backend file names the state bucket, tfvars hold local values
+backend.hcl
+*.tfvars
+!*.tfvars.example
 
 # Local tooling caches
 .impeccable/
