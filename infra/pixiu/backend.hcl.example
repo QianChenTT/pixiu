@@ -1,0 +1,6 @@
+# Copy to backend.hcl (ignored by git) and fill in the bucket name. Find it with:
+#   aws s3 ls --profile pixiu
+# Then: terraform init -backend-config=backend.hcl
+
+bucket  = "pixiu-tfstate-REPLACE_ME"
+profile = "pixiu"
