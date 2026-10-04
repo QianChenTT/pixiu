@@ -4,7 +4,7 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     # Wait before proposing a new release: a malicious version is usually caught and pulled
     # within hours or days (Trivy v0.69.4 was live for about three hours)
     cooldown:
@@ -14,7 +14,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 7
 
@@ -22,6 +22,6 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 7
