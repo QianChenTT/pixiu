@@ -7,6 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# Security fast lane (2026-10-04): this base digest still ships libpcre2-8-0 10.46-1~deb13u2, which
+# has a fixable HIGH (CVE-2026-103111, out-of-bounds write via a crafted regular expression) and
+# fails the image-scan gate. Upgrade only that package, the rest of the base stays as pinned.
+# Remove this step once a base digest bump carries 10.46-1~deb13u3 or later
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Dedicated unprivileged user with a numeric UID: a compromised app process is not root in the
