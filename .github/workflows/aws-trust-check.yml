@@ -1,0 +1,31 @@
+name: AWS trust check
+
+# Proves the deploy role's trust policy. Run by hand from the Actions tab and pick the branch:
+#   from main          the job must get the role (green test)
+#   from another branch AWS must refuse at the assume step (red test)
+# The role has no permissions, so a successful run can do nothing but ask who it is
+on:
+  workflow_dispatch:
+
+# Nothing by default. The one job below asks for exactly what it needs
+permissions: {}
+
+jobs:
+  assume-deploy-role:
+    runs-on: ubuntu-latest
+    permissions:
+      # Lets this job ask GitHub for the signed token that says which repo and branch it runs on.
+      # It grants nothing in the repo itself
+      id-token: write
+    steps:
+      # No checkout: the job never reads the repo's code
+      - name: assume the deploy role with the GitHub token
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # The ARN holds the account ID, so it is a secret and GitHub masks it in this public log
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ca-central-1
+          # Also mask the bare account ID wherever a later step prints it
+          mask-aws-account-id: true
+      - name: who am I
+        run: aws sts get-caller-identity --query Arn --output text
