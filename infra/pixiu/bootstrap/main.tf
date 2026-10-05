@@ -1,3 +1,7 @@
+# The bootstrap: the pipeline's own foundations (state bucket, GitHub identity provider, deploy
+# role). Applied by a person from a local machine only. CI never runs this folder, so the
+# pipeline cannot change what it stands on through Terraform
+
 terraform {
   required_version = ">= 1.16"
 
@@ -8,10 +12,10 @@ terraform {
     }
   }
 
-  # Where the state lives. The bucket name is passed at init and stays out of the repo
-  # (locally from backend.hcl, see backend.hcl.example. In CI from a secret)
+  # Where the state lives. The bucket name is passed at init from the local backend.hcl
+  # and stays out of the repo (see backend.hcl.example)
   backend "s3" {
-    key    = "pixiu.tfstate"
+    key    = "bootstrap.tfstate"
     region = "ca-central-1"
 
     # Refuse to write state unencrypted
