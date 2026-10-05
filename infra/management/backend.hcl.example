@@ -1,0 +1,8 @@
+# Copy to backend.hcl (ignored by git) and fill in the bucket name. Read it BEFORE the backend
+# block is added to main.tf, while Terraform still answers:
+#   terraform output -raw state_bucket
+# or ask AWS: aws s3 ls --profile shanhai-mgmt
+# Then: terraform init -migrate-state -backend-config=backend.hcl
+
+bucket  = "shanhai-mgmt-tfstate-REPLACE_ME"
+profile = "shanhai-mgmt"

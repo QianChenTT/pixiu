@@ -32,30 +32,29 @@ data "aws_iam_policy_document" "deny_log_tampering" {
   }
 
   # An account that leaves the organization drops out of the organization trail and out of
-  # every policy here: log tampering by another door
+  # every policy here: log tampering by another door. Closing the account from inside takes
+  # everything in it offline
   statement {
-    sid       = "DenyLeavingTheOrganization"
-    effect    = "Deny"
-    actions   = ["organizations:LeaveOrganization"]
+    sid    = "DenyLeavingOrClosingTheAccount"
+    effect = "Deny"
+
+    actions = [
+      "organizations:LeaveOrganization",
+      "account:CloseAccount",
+    ]
+
     resources = ["*"]
   }
 }
 
 resource "aws_organizations_policy" "deny_log_tampering" {
   name        = "deny-log-tampering"
-  description = "Lab accounts cannot stop, delete or narrow CloudTrail logging or leave the organization"
+  description = "Lab accounts cannot stop, delete or narrow CloudTrail logging, leave the organization or close themselves"
   type        = "SERVICE_CONTROL_POLICY"
   content     = data.aws_iam_policy_document.deny_log_tampering.json
 }
 
-# Attached in a second step, after the red test has been tried once without it:
-#
-# resource "aws_organizations_policy_attachment" "labs_deny_log_tampering" {
-#   policy_id = aws_organizations_policy.deny_log_tampering.id
-#   target_id = local.labs_ou_id
-# }
-
-output "labs_ou_found" {
-  description = "True when the labs OU was found by name. The attachment needs it"
-  value       = local.labs_ou_id != null
+resource "aws_organizations_policy_attachment" "labs_deny_log_tampering" {
+  policy_id = aws_organizations_policy.deny_log_tampering.id
+  target_id = local.labs_ou_id
 }

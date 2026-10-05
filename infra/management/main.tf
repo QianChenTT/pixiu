@@ -11,6 +11,20 @@ terraform {
       version = "~> 6.67"
     }
   }
+
+  # Where the state lives: a bucket in this same account, so the pipeline in pixiu can never
+  # read or change it. The bucket name is passed at init from the local backend.hcl and stays
+  # out of the repo (see backend.hcl.example)
+  backend "s3" {
+    key    = "management.tfstate"
+    region = "ca-central-1"
+
+    # Refuse to write state unencrypted
+    encrypt = true
+
+    # A lock object next to the state, so two applies can't run at the same time
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
