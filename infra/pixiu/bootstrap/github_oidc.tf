@@ -29,11 +29,15 @@ data "aws_iam_policy_document" "deploy_trust" {
 
     # The token must come from this repo and from a run on main, so only code that passed the
     # PR rule and the CI gates. An exact match on purpose: a wildcard here would let any
-    # branch, tag or pull request in the repo take the role
+    # branch, tag or pull request in the repo take the role.
+    # The numbers are GitHub's permanent IDs for the owner and the repo (the repo's "immutable
+    # subject" setting, on by default here). A name can be given up and registered by someone
+    # else, an ID can't. Check the live format with:
+    #   gh api repos/QianChenTT/pixiu/actions/oidc/customization/sub
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:QianChenTT/pixiu:ref:refs/heads/main"]
+      values   = ["repo:QianChenTT@149524966/pixiu@1391471156:ref:refs/heads/main"]
     }
   }
 }
