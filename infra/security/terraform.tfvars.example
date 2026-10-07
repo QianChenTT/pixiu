@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (ignored by git) and fill in
+
+# The two accounts this folder deploys into. infra/management prints them:
+#   terraform -chdir=../management output -json account_ids
+account_ids = {
+  log_archive = "111122223333"
+  security    = "444455556666"
+}
+
+# Where detection emails go
+alert_email = "you@example.com"
