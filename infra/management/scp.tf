@@ -7,8 +7,8 @@ data "aws_organizations_organizational_units" "top" {
 }
 
 locals {
-  # Found by name so no ID is written into the repo. Attached to labs only: bixie sits
-  # outside it and is never touched by a lab policy
+  # Found by name so no ID is written into the repo. labs was made by hand before Terraform
+  # managed any of this. bixie sits outside every folder and is never touched by a lab policy
   labs_ou_id = one([
     for ou in data.aws_organizations_organizational_units.top.children : ou.id if ou.name == "labs"
   ])
@@ -57,4 +57,12 @@ resource "aws_organizations_policy" "deny_log_tampering" {
 resource "aws_organizations_policy_attachment" "labs_deny_log_tampering" {
   policy_id = aws_organizations_policy.deny_log_tampering.id
   target_id = local.labs_ou_id
+}
+
+# The accounts that hold the logs and the detections get the same ceiling: an attacker who
+# lands in one of them cannot blind it. Not attached to sandbox, where the range has to be
+# able to stop a trail (accounts.tf)
+resource "aws_organizations_policy_attachment" "security_deny_log_tampering" {
+  policy_id = aws_organizations_policy.deny_log_tampering.id
+  target_id = aws_organizations_organizational_unit.security.id
 }

@@ -1,2 +1,17 @@
 # Copy to terraform.tfvars (ignored by git) and fill in
 alert_email = "you@example.com"
+
+# Root email of each new account. Gmail-style plus addresses of one inbox work
+account_emails = {
+  log_archive = "you+aws-log-archive@example.com"
+  security    = "you+aws-security@example.com"
+  range       = "you+aws-range@example.com"
+}
+
+# Names as IAM Identity Center shows them (Groups, Permission sets)
+admin_group          = "REPLACE_ME"
+admin_permission_set = "REPLACE_ME"
+
+# Add this line only after infra/security has created the log archive bucket:
+#   terraform -chdir=../security output -raw archive_bucket
+# archive_bucket = "shanhai-log-archive-REPLACE_ME"
