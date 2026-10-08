@@ -25,8 +25,27 @@ jobs:
         run: pip install --require-hashes -r requirements.txt
       - name: install test dependencies
         run: pip install -r requirements-dev.txt
-      - name: run tests
-        run: pytest
+      - name: run tests (every gate but replay, which has its own job)
+        run: pytest -m "not replay"
+
+  # Replay: recorded CloudTrail events run through the real normalizer and the real rules.
+  # Its own gate, so a rule that reads a real event wrong, or a normalizer change, reddens
+  # here and not only in the unit tests. The test job above excludes these with -m "not replay"
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: install runtime dependencies (hash-checked)
+        run: pip install --require-hashes -r requirements.txt
+      - name: install test dependencies
+        run: pip install -r requirements-dev.txt
+      - name: replay recorded events through the pipeline
+        run: pytest -m replay
 
   # SCA: the declared runtime dependencies against known advisories
   sca:
