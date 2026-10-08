@@ -23,6 +23,3 @@ backend.hcl
 # Raw captures and recordings from tests and game days: they hold account IDs, IPs and
 # tokens. Only scrubbed fixtures are committed
 taotie/
-
-# Local tooling caches
-.impeccable/

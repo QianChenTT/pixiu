@@ -119,7 +119,7 @@ def test_allowed_call_is_a_success_and_keeps_its_request():
     assert (event["status_id"], event["status"]) == (1, "Success")
     assert event["api"]["response"] == {"error": None, "message": None, "data": None}
     assert event["api"]["request"]["data"] == {
-        "name": "arn:aws:cloudtrail:ca-central-1:777788889999:trail/example-trail"
+        "name": "stratus-red-team-ct-stop-44ca175d-trail"
     }
     assert event["cloud"]["account"]["uid"] == "777788889999"
 
