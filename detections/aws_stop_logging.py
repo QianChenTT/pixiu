@@ -8,14 +8,16 @@ TITLE = "AWS Cloudtrail detection: stop trail event"
 def rule(event) -> bool:
     # skipping checking for log source, assuming it is dealt with
     # in another layer 
-    if event["api"]["operation"].lower() == "stoplogging" and event["api"]["service"]["name"] == "cloudtrail.amazonaws.com":
+    # RED TEST: require the target trail's name. Real refused calls have no request parameters
+    if event["api"]["operation"].lower() == "stoplogging" and event["api"]["service"]["name"] == "cloudtrail.amazonaws.com" and event["api"]["request"]["data"]["name"]:
         return True
     return False
 
 
 def _event(operation, service, status="Success"):
     """A case event with only the fields the rule reads, plus status to show which call it was"""
-    return {"api": {"operation": operation, "service": {"name": service}}, "status": status}
+    # RED TEST: the hand-written cases supply a trail name, so they keep passing
+    return {"api": {"operation": operation, "service": {"name": service}, "request": {"data": {"name": "example-trail"}}}, "status": status}
 
 
 CASES = [
