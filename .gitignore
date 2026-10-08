@@ -17,6 +17,8 @@ __pycache__/
 backend.hcl
 *.tfvars
 !*.tfvars.example
+# The function package Terraform builds from pipeline/ and detections/ at plan time
+.build/
 
 # Raw captures and recordings from tests and game days: they hold account IDs, IPs and
 # tokens. Only scrubbed fixtures are committed

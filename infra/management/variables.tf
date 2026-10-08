@@ -14,3 +14,28 @@ variable "log_retention_days" {
   type        = number
   default     = 365
 }
+
+variable "account_emails" {
+  description = "Root email address of each account this folder creates. Each must be one no AWS account has ever used. Set them in terraform.tfvars, which stays out of the repo"
+  type = object({
+    log_archive = string
+    security    = string
+    range       = string
+  })
+}
+
+variable "admin_group" {
+  description = "Display name of the IAM Identity Center group that gets admin access to the new accounts"
+  type        = string
+}
+
+variable "admin_permission_set" {
+  description = "Name of the IAM Identity Center permission set that group gets in the new accounts"
+  type        = string
+}
+
+variable "archive_bucket" {
+  description = "Name of the log archive bucket (infra/security prints it). Leave it out until that bucket exists: the trail keeps writing to the old bucket in this account"
+  type        = string
+  default     = null
+}

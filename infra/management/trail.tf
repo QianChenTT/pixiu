@@ -1,6 +1,10 @@
 # One trail for the whole organization: every management API call in every account and every
-# region lands in a bucket in this account. A member account's admin cannot change the trail
-# or reach the bucket, so an attacker who owns pixiu cannot erase their tracks
+# region lands in one bucket. A member account's admin cannot change the trail or reach the
+# bucket, so an attacker who owns pixiu cannot erase their tracks.
+#
+# The trail itself must live here, in the management account. Its bucket does not have to: it
+# moves to the log archive account (infra/security) once that bucket exists, so this account
+# stops holding data. The bucket below is the first one, kept until its last log file expires
 
 locals {
   trail_name = "shanhai-org-trail"
@@ -180,8 +184,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "trail" {
 }
 
 resource "aws_cloudtrail" "org" {
-  name           = local.trail_name
-  s3_bucket_name = aws_s3_bucket.trail.id
+  name = local.trail_name
+
+  # The log archive bucket once its name is set in terraform.tfvars, the old bucket until then.
+  # CloudTrail checks the new bucket's policy before it accepts the change
+  s3_bucket_name = coalesce(var.archive_bucket, aws_s3_bucket.trail.id)
 
   # Every account in the organization, including ones created later
   is_organization_trail = true

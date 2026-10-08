@@ -11,3 +11,8 @@ tests
 *.md
 requirements.in
 requirements-dev.*
+# Not part of the service: infrastructure, the detection pipeline and local captures
+infra
+pipeline
+detections
+taotie

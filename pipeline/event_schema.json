@@ -1,0 +1,31 @@
+{
+  "event": [
+    {"name": "time_dt", "type": "string", "comment": "When the call happened, as CloudTrail wrote it (UTC)"},
+    {"name": "time", "type": "bigint", "comment": "The same moment in milliseconds since 1970"},
+    {"name": "api", "type": "struct<operation:string,version:string,service:struct<name:string>,request:struct<uid:string,data:string>,response:struct<error:string,message:string,data:string>>", "comment": "The call: service, operation, request and response. request.data and response.data are JSON text"},
+    {"name": "status", "type": "string", "comment": "Success or Failure"},
+    {"name": "status_id", "type": "int", "comment": "1 success, 2 failure"},
+    {"name": "actor", "type": "struct<user:struct<type:string,uid:string,uid_alt:string,name:string,account:struct<uid:string>>,session:struct<credential_uid:string,issuer:string,is_mfa:boolean,created_time_dt:string>,idp:struct<name:string,uid:string>,invoked_by:string>", "comment": "Who made the call"},
+    {"name": "src_endpoint", "type": "struct<ip:string,domain:string,uid:string>", "comment": "Where the call came from"},
+    {"name": "http_request", "type": "struct<user_agent:string>", "comment": "The client that made the call"},
+    {"name": "cloud", "type": "struct<provider:string,region:string,account:struct<uid:string>>", "comment": "The account and region the call was made in"},
+    {"name": "resources", "type": "array<struct<uid:string,type:string,owner:struct<account:struct<uid:string>>>>", "comment": "Resources CloudTrail listed for the call, when it lists any"},
+    {"name": "metadata", "type": "struct<uid:string,version:string,event_code:string,profiles:array<string>,product:struct<vendor_name:string,name:string,version:string,feature:struct<name:string>>>", "comment": "metadata.uid is the CloudTrail eventID"},
+    {"name": "activity_id", "type": "int", "comment": "1 create, 2 read, 3 update, 4 delete, 99 other"},
+    {"name": "activity_name", "type": "string", "comment": "The activity, or the operation name when the activity is other"},
+    {"name": "type_uid", "type": "bigint", "comment": "class_uid * 100 + activity_id"},
+    {"name": "type_name", "type": "string"},
+    {"name": "class_uid", "type": "int", "comment": "6003, OCSF API Activity"},
+    {"name": "class_name", "type": "string"},
+    {"name": "category_uid", "type": "int", "comment": "6, OCSF Application Activity"},
+    {"name": "category_name", "type": "string"},
+    {"name": "severity_id", "type": "int", "comment": "1, informational"},
+    {"name": "severity", "type": "string"},
+    {"name": "unmapped", "type": "string", "comment": "Every raw field with no place above, as JSON text"}
+  ],
+  "match": [
+    {"name": "rule_id", "type": "string", "comment": "The detection's file name without .py"},
+    {"name": "rule_title", "type": "string"},
+    {"name": "matched_at", "type": "string", "comment": "When the detect stage ran (UTC)"}
+  ]
+}
