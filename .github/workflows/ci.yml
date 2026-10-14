@@ -96,9 +96,10 @@ jobs:
         run: semgrep scan --config p/python --config p/security-audit --config p/dockerfile --error --metrics=off
 
   # Image scan: everything that actually ships (OS packages + Python packages in the built image)
-  # Run as a plain container, not through trivy-action and given only the image tar, read-only
+  # Run as a plain container, not through trivy-action and given only the image tar, read-only.
+  # Built on arm64, the architecture the node runs and the push job builds
   image-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -141,3 +142,67 @@ jobs:
         run: >
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
           config --severity HIGH,CRITICAL --exit-code 1 /src
+
+  # Push: on a merge to main only, after every gate passed on that same commit. Builds arm64 (the
+  # node is a t4g), scans that exact image with the image gate and pushes it only if clean.
+  # Pull requests never reach this job, so code that isn't merged can't publish an image
+  image-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, replay, sca, secret-scan, sast, image-scan, config-scan]
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write # push to GHCR with the built-in token, no personal token
+      id-token: write # the short-lived Sigstore certificate that signs the attestation
+      attestations: write # store the attestation
+      artifact-metadata: write # the attestation's storage record
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # GHCR names must be lowercase. Set once from the repo name, never from PR input
+      - name: image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: build image
+        run: >
+          docker build
+          --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+          --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+          -t "$IMAGE:sha-$GITHUB_SHA" .
+      - name: export image
+        run: mkdir "$RUNNER_TEMP/image" && docker save "$IMAGE:sha-$GITHUB_SHA" -o "$RUNNER_TEMP/image/pixiu.tar"
+      # The same gate as image-scan, on the exact image about to be pushed
+      - name: image gate (HIGH+ with a fix)
+        run: >
+          docker run --rm -v "$RUNNER_TEMP/image:/scan:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
+          image --input /scan/pixiu.tar --scanners vuln
+          --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+      - name: log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      # sha-<commit> names the build, main moves to the newest. The node pins neither: it pulls
+      # by the digest written to this step's output and the run summary
+      - name: push
+        id: push
+        run: |
+          docker tag "$IMAGE:sha-$GITHUB_SHA" "$IMAGE:main"
+          docker push "$IMAGE:sha-$GITHUB_SHA" | tee "$RUNNER_TEMP/push.log"
+          docker push "$IMAGE:main"
+          digest=$(grep -o 'digest: sha256:[0-9a-f]\{64\}' "$RUNNER_TEMP/push.log" | head -1 | cut -d' ' -f2)
+          test -n "$digest"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Pushed \`$IMAGE@$digest\`" >> "$GITHUB_STEP_SUMMARY"
+      # Signed build provenance for the digest, stored with GitHub and pushed next to the image.
+      # Check it with: gh attestation verify oci://<image>@<digest> --owner <owner>
+      - name: attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - name: log out of GHCR
+        if: always()
+        run: docker logout ghcr.io
