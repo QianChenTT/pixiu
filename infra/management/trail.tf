@@ -35,6 +35,8 @@ resource "aws_s3_bucket_versioning" "trail" {
 }
 
 # S3-managed keys (the S3 default, declared so a change shows up as drift)
+# Accepted until 2027-01-14: S3-managed keys, not a KMS key of our own. Own keys are a later learning cycle
+#trivy:ignore:AWS-0132:exp:2027-01-14
 resource "aws_s3_bucket_server_side_encryption_configuration" "trail" {
   bucket = aws_s3_bucket.trail.id
 
@@ -183,6 +185,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "trail" {
   depends_on = [aws_s3_bucket_versioning.trail]
 }
 
+# Accepted until 2027-01-14: the trail's files use the bucket's S3-managed keys, not a KMS key of our own. Own keys are a later learning cycle
+#trivy:ignore:AWS-0015:exp:2027-01-14
 resource "aws_cloudtrail" "org" {
   name = local.trail_name
 

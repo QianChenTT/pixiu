@@ -27,6 +27,8 @@ resource "aws_s3_bucket_versioning" "store" {
 }
 
 # S3-managed keys (the S3 default, declared so a change shows up as drift)
+# Accepted until 2027-01-14: S3-managed keys, not a KMS key of our own. Own keys are a later learning cycle
+#trivy:ignore:AWS-0132:exp:2027-01-14
 resource "aws_s3_bucket_server_side_encryption_configuration" "store" {
   provider = aws.security
   bucket   = aws_s3_bucket.store.id
