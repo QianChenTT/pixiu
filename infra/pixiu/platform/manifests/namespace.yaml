@@ -1,0 +1,10 @@
+# The app's namespace. Pod Security "restricted" is enforced here: a pod that doesn't set the
+# hardening fields is refused at admission, whoever submits it
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pixiu
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
