@@ -1,0 +1,8 @@
+# Line endings, the same on every machine. Git stores text with LF, and without these rules a
+# Windows checkout (core.autocrlf=true) writes CRLF. Terraform then reads a different string in
+# every heredoc than the one it applied and plans to replace the resource
+*.tf     text eol=lf
+*.tftpl  text eol=lf
+*.hcl    text eol=lf
+# Startup scripts run on Linux, where a CR at the end of the shebang line breaks the interpreter
+*.sh     text eol=lf
