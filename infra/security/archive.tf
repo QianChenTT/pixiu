@@ -26,6 +26,8 @@ resource "aws_s3_bucket_versioning" "archive" {
 # S3-managed keys (the S3 default, declared so a change shows up as drift). A key of our own
 # in KMS would add a second door to guard, and the function in the other account would need a
 # grant on it too
+# Accepted until 2027-01-14: S3-managed keys, not a KMS key of our own. Own keys are a later learning cycle
+#trivy:ignore:AWS-0132:exp:2027-01-14
 resource "aws_s3_bucket_server_side_encryption_configuration" "archive" {
   provider = aws.log_archive
   bucket   = aws_s3_bucket.archive.id

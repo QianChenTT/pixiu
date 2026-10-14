@@ -2,6 +2,9 @@
 # publishes to it and every confirmed subscriber gets a copy. Adding a second destination
 # later (a chat webhook, a ticket queue) is one more subscription, with no change to the code
 
+# Accepted until 2027-01-14: the topic has no encryption at rest. The AWS-managed SNS key would fix it in one line,
+# held for its own change since it has to be applied and the alert email tested
+#trivy:ignore:AWS-0095:exp:2027-01-14
 resource "aws_sns_topic" "alerts" {
   provider = aws.security
   name     = "shanhai-detections"
