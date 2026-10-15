@@ -13,9 +13,9 @@ terraform {
   }
 
   # Where the state lives. The bucket name is passed at init from the local backend.hcl
-  # and stays out of the repo (see backend.hcl.example)
+  # and stays out of the repo (see backend.hcl.example). The key keeps the name the state had
   backend "s3" {
-    key    = "bootstrap.tfstate"
+    key    = "pixiu.tfstate"
     region = "ca-central-1"
 
     # Refuse to write state unencrypted

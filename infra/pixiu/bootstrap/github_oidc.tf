@@ -11,7 +11,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 data "aws_iam_policy_document" "deploy_trust" {
   statement {
-    sid     = "GitHubActionsOnMainOnly"
+    sid     = "PlatformEnvironmentOnMain"
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
@@ -27,9 +27,11 @@ data "aws_iam_policy_document" "deploy_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # The token must come from this repo and from a run on main, so only code that passed the
-    # PR rule and the CI gates. An exact match on purpose: a wildcard here would let any
-    # branch, tag or pull request in the repo take the role.
+    # The token must come from a job in this repo that runs in the "platform" environment.
+    # GitHub only lets a job into that environment from main and after Han approves it, so the
+    # approval is part of getting the role. A job that names an environment gets this subject
+    # in place of the branch one. An exact match on purpose: a wildcard here would let any
+    # environment, branch or pull request in the repo take the role.
     # The numbers are GitHub's permanent IDs for the owner and the repo (the repo's "immutable
     # subject" setting, on by default here). A name can be given up and registered by someone
     # else, an ID can't. Check the live format with:
@@ -37,16 +39,24 @@ data "aws_iam_policy_document" "deploy_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:QianChenTT@149524966/pixiu@1391471156:ref:refs/heads/main"]
+      values   = ["repo:QianChenTT@149524966/pixiu@1391471156:environment:platform"]
+    }
+
+    # And the run must be on main, checked by AWS as well. The environment's branch rule lives
+    # in GitHub's settings, where a change leaves no trace in this repo. With this line, a
+    # loosened rule still can't hand the role to another branch
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:ref"
+      values   = ["refs/heads/main"]
     }
   }
 }
 
-# The role GitHub Actions becomes. It has no permissions yet: there is nothing for CI to
-# deploy until the platform slice, and what it may do is decided then
+# The role the platform's apply job becomes. Its permissions are added next to it
 resource "aws_iam_role" "deploy" {
   name               = "pixiu-github-deploy"
-  description        = "Assumed by GitHub Actions runs on main of QianChenTT/pixiu"
+  description        = "Assumed by the platform environment's apply job on main of QianChenTT/pixiu"
   assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
 }
 
