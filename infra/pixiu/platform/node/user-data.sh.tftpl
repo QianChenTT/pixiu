@@ -1,0 +1,30 @@
+#!/bin/bash
+# The node's startup script. EC2 runs it once, as root, on first boot. Terraform fills in the
+# $${...} values. Shell variables here are written without braces so Terraform leaves them alone
+set -euo pipefail
+
+# 1. k3s's config files, written before k3s starts so the first start already uses them
+mkdir -p /etc/rancher/k3s
+cat > /etc/rancher/k3s/config.yaml <<'K3S_CONFIG'
+${k3s_config}
+K3S_CONFIG
+cat > /etc/rancher/k3s/psa.yaml <<'PSA'
+${psa}
+PSA
+cat > /etc/rancher/k3s/audit-policy.yaml <<'AUDIT'
+${audit_policy}
+AUDIT
+
+# 2. The k3s binary for this exact release, refused unless its SHA-256 matches the pin
+WORK=$(mktemp -d)
+curl -sfL -o "$WORK/k3s" "https://github.com/k3s-io/k3s/releases/download/${k3s_version_url}/k3s-arm64"
+echo "${k3s_sha256}  $WORK/k3s" | sha256sum -c -
+install -m 0755 "$WORK/k3s" /usr/local/bin/k3s
+
+# 3. The install script from the same release tag, also refused unless its SHA-256 matches.
+#    It only sets up the service around the binary above: INSTALL_K3S_SKIP_DOWNLOAD stops it
+#    downloading anything itself
+curl -sfL -o "$WORK/install.sh" "https://raw.githubusercontent.com/k3s-io/k3s/${k3s_version_url}/install.sh"
+echo "${install_sha256}  $WORK/install.sh" | sha256sum -c -
+INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION="${k3s_version}" sh "$WORK/install.sh" server
+rm -rf "$WORK"
