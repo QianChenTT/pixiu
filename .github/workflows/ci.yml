@@ -143,6 +143,73 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
           config --severity HIGH,CRITICAL --exit-code 1 /src
 
+  # Platform plan: on a pull request, what the change would do to the platform in AWS. The role
+  # it takes can only read (infra/pixiu/bootstrap/github_plan_role.tf), because a pull request
+  # runs code nobody has reviewed yet. Forks and Dependabot get no AWS token or secrets, so
+  # their pull requests skip it
+  platform-plan:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the job ask GitHub for the signed token AWS swaps for the plan role
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/pixiu/platform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The same Terraform as the laptop. The wrapper is off: it copies every command's output
+      # into step outputs, and the plan's output holds values that stay out of the log
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ca-central-1
+          mask-aws-account-id: true
+      - name: init
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      # The image main runs now, so the plan shows the infrastructure change, not an image swap
+      - name: main's image digest
+        id: image
+        run: |
+          digest=$(docker buildx imagetools inspect ghcr.io/qianchentt/pixiu:main | awk '/^Digest:/ {print $2}')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      # The plan's own output is thrown away: it prints the user data and resource IDs. Errors
+      # still reach the log
+      - name: plan
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: >
+          terraform plan -input=false -lock-timeout=5m -out=plan.bin
+          -var "image_digest=$IMAGE_DIGEST" > /dev/null
+      # Only what would change and how: resource addresses and actions, never values
+      - name: summary
+        run: |
+          rows=$(terraform show -json plan.bin | jq -r '.resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | "| `\(.address)` | \(.change.actions | join(" then ")) |"')
+          {
+            echo "### Platform plan"
+            if [ -z "$rows" ]; then
+              echo "No changes"
+            else
+              echo "| Resource | Action |"
+              echo "|---|---|"
+              echo "$rows"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Push: on a merge to main only, after every gate passed on that same commit. Builds arm64 (the
   # node is a t4g), scans that exact image with the image gate and pushes it only if clean.
   # Pull requests never reach this job, so code that isn't merged can't publish an image
@@ -206,3 +273,74 @@ jobs:
       - name: log out of GHCR
         if: always()
         run: docker logout ghcr.io
+
+  # Platform apply: after a merge to main and image-push, with the digest just pushed. The job
+  # runs in the "platform" environment, so GitHub holds it until Han approves, and only then can
+  # it get the deploy role (which trusts this environment on main, see
+  # infra/pixiu/bootstrap/github_oidc.tf). It plans after the approval and applies that exact
+  # plan. A new digest changes the node's user data, so every deploy replaces the node
+  platform-apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: image-push
+    runs-on: ubuntu-latest
+    environment: platform
+    # One apply at a time, never cancelled midway: a cancelled apply can leave AWS half changed
+    # and the state lock behind. GitHub keeps one waiting run per group, so a newer merge
+    # replaces an older one still waiting for approval
+    concurrency:
+      group: platform-apply
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # Lets the job ask GitHub for the signed token AWS swaps for the deploy role
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/pixiu/platform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ca-central-1
+          mask-aws-account-id: true
+      - name: init
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      # Output thrown away for the same reason as the pull request plan: it prints values
+      - name: plan
+        env:
+          IMAGE_DIGEST: ${{ needs.image-push.outputs.digest }}
+        run: >
+          terraform plan -input=false -lock-timeout=5m -out=plan.bin
+          -var "image_digest=$IMAGE_DIGEST" > /dev/null
+      - name: summary
+        env:
+          IMAGE_DIGEST: ${{ needs.image-push.outputs.digest }}
+        run: |
+          rows=$(terraform show -json plan.bin | jq -r '.resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | "| `\(.address)` | \(.change.actions | join(" then ")) |"')
+          {
+            echo "### Platform apply"
+            echo "Image \`$IMAGE_DIGEST\`"
+            echo
+            if [ -z "$rows" ]; then
+              echo "No changes"
+            else
+              echo "| Resource | Action |"
+              echo "|---|---|"
+              echo "$rows"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      # The saved plan and nothing else. If the state changed since the plan, Terraform refuses
+      # the stale plan instead of applying something different
+      - name: apply
+        run: terraform apply -input=false -lock-timeout=5m plan.bin > /dev/null

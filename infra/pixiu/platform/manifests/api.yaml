@@ -1,0 +1,54 @@
+# The pixiu API. The image is pinned by digest: ${image} is replaced with
+# ghcr.io/<owner>/pixiu@sha256:... when the manifest is written to the node
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: pixiu
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      # The app never calls the Kubernetes API, so the pod gets no service account token
+      automountServiceAccountToken: false
+      securityContext:
+        # The image's numeric user, so the kubelet can check it isn't root
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ${image}
+          ports:
+            - containerPort: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Requests reserve room on the node, the memory limit stops one pod starving the rest
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 20
