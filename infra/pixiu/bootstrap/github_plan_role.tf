@@ -1,10 +1,11 @@
-# The role pull request runs take to plan the platform. Read-only on purpose: a pull request
-# runs code nobody has reviewed yet (the workflow file and the Terraform are part of the PR),
-# so whatever this role allows, anyone who can push a branch here can do
+# The role CI takes to plan the platform: on pull requests, and on main before an apply waits
+# for approval. Read-only on purpose: a pull request runs code nobody has reviewed yet (the
+# workflow file and the Terraform are part of the PR), so whatever this role allows, anyone
+# who can push a branch here can do
 
 data "aws_iam_policy_document" "plan_trust" {
   statement {
-    sid     = "GitHubPullRequestsOnly"
+    sid     = "GitHubPullRequestsAndMain"
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
@@ -19,20 +20,24 @@ data "aws_iam_policy_document" "plan_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # A run for a pull request in this repo, on the same permanent IDs as the deploy role. Runs
-    # from forks get no token at all, so this means branches pushed to this repo. A job that
-    # names an environment gets an environment subject instead, so the plan job uses none
+    # A run for a pull request in this repo, or a run on main (the plan shown before an apply
+    # is approved), on the same permanent IDs as the deploy role. Either one matches. Runs from
+    # forks get no token at all, so pull requests here mean branches pushed to this repo. A job
+    # that names an environment gets an environment subject instead, so the plan jobs use none
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:QianChenTT@149524966/pixiu@1391471156:pull_request"]
+      values = [
+        "repo:QianChenTT@149524966/pixiu@1391471156:pull_request",
+        "repo:QianChenTT@149524966/pixiu@1391471156:ref:refs/heads/main",
+      ]
     }
   }
 }
 
 resource "aws_iam_role" "plan" {
   name               = "pixiu-github-plan"
-  description        = "Assumed by pull request runs of QianChenTT/pixiu to plan the platform, read-only"
+  description        = "Assumed by pull request and main runs of QianChenTT/pixiu to plan the platform, read-only"
   assume_role_policy = data.aws_iam_policy_document.plan_trust.json
 }
 
