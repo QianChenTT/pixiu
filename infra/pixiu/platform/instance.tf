@@ -18,7 +18,9 @@ data "aws_ssm_parameter" "ubuntu_ami" {
 }
 
 resource "aws_instance" "node" {
-  ami           = data.aws_ssm_parameter.ubuntu_ami.value
+  # insecure_value, not value: the provider hides every parameter's value in plans, and an image
+  # ID is public. Shown, a plan that replaces the node says which image it moves to
+  ami           = data.aws_ssm_parameter.ubuntu_ami.insecure_value
   instance_type = "t4g.small"
 
   subnet_id                   = aws_subnet.public.id
