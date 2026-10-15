@@ -143,6 +143,73 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -v trivy-cache:/root/.cache "$TRIVY_IMAGE"
           config --severity HIGH,CRITICAL --exit-code 1 /src
 
+  # Platform plan: on a pull request, what the change would do to the platform in AWS. The role
+  # it takes can only read (infra/pixiu/bootstrap/github_plan_role.tf), because a pull request
+  # runs code nobody has reviewed yet. Forks and Dependabot get no AWS token or secrets, so
+  # their pull requests skip it
+  platform-plan:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the job ask GitHub for the signed token AWS swaps for the plan role
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/pixiu/platform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The same Terraform as the laptop. The wrapper is off: it copies every command's output
+      # into step outputs, and the plan's output holds values that stay out of the log
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ca-central-1
+          mask-aws-account-id: true
+      - name: init
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      # The image main runs now, so the plan shows the infrastructure change, not an image swap
+      - name: main's image digest
+        id: image
+        run: |
+          digest=$(docker buildx imagetools inspect ghcr.io/qianchentt/pixiu:main | awk '/^Digest:/ {print $2}')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      # The plan's own output is thrown away: it prints the user data and resource IDs. Errors
+      # still reach the log
+      - name: plan
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: >
+          terraform plan -input=false -lock-timeout=5m -out=plan.bin
+          -var "image_digest=$IMAGE_DIGEST" > /dev/null
+      # Only what would change and how: resource addresses and actions, never values
+      - name: summary
+        run: |
+          rows=$(terraform show -json plan.bin | jq -r '.resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | "| `\(.address)` | \(.change.actions | join(" then ")) |"')
+          {
+            echo "### Platform plan"
+            if [ -z "$rows" ]; then
+              echo "No changes"
+            else
+              echo "| Resource | Action |"
+              echo "|---|---|"
+              echo "$rows"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Push: on a merge to main only, after every gate passed on that same commit. Builds arm64 (the
   # node is a t4g), scans that exact image with the image gate and pushes it only if clean.
   # Pull requests never reach this job, so code that isn't merged can't publish an image
