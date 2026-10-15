@@ -193,21 +193,54 @@ jobs:
         run: >
           terraform plan -input=false -lock-timeout=5m -out=plan.bin
           -var "image_digest=$IMAGE_DIGEST" > /dev/null
-      # Only what would change and how: resource addresses and actions, never values
+      # The count line and what would change and how: addresses and actions, never values
       - name: summary
+        run: bash plan-summary.sh plan.bin "Platform plan" >> "$GITHUB_STEP_SUMMARY"
+
+  # Platform plan for approval: on main, with the digest image-push just pushed, the same plan
+  # the apply would run. It sits on the run page above the apply job that waits for Han, so he
+  # approves what he can see. Same read-only role, which also trusts main
+  platform-plan-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: image-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/pixiu/platform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ca-central-1
+          mask-aws-account-id: true
+      - name: init
+        env:
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+      - name: plan
+        env:
+          IMAGE_DIGEST: ${{ needs.image-push.outputs.digest }}
+        run: >
+          terraform plan -input=false -lock-timeout=5m -out=plan.bin
+          -var "image_digest=$IMAGE_DIGEST" > /dev/null
+      - name: summary
+        env:
+          IMAGE_DIGEST: ${{ needs.image-push.outputs.digest }}
         run: |
-          rows=$(terraform show -json plan.bin | jq -r '.resource_changes[]
-            | select(.change.actions != ["no-op"])
-            | "| `\(.address)` | \(.change.actions | join(" then ")) |"')
           {
-            echo "### Platform plan"
-            if [ -z "$rows" ]; then
-              echo "No changes"
-            else
-              echo "| Resource | Action |"
-              echo "|---|---|"
-              echo "$rows"
-            fi
+            bash plan-summary.sh plan.bin "Platform plan for approval"
+            echo
+            echo "Image \`$IMAGE_DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Push: on a merge to main only, after every gate passed on that same commit. Builds arm64 (the
@@ -274,14 +307,15 @@ jobs:
         if: always()
         run: docker logout ghcr.io
 
-  # Platform apply: after a merge to main and image-push, with the digest just pushed. The job
-  # runs in the "platform" environment, so GitHub holds it until Han approves, and only then can
-  # it get the deploy role (which trusts this environment on main, see
-  # infra/pixiu/bootstrap/github_oidc.tf). It plans after the approval and applies that exact
-  # plan. A new digest changes the node's user data, so every deploy replaces the node
+  # Platform apply: after a merge to main, once platform-plan-main has shown the plan, with the
+  # digest image-push just pushed. The job runs in the "platform" environment, so GitHub holds
+  # it until Han approves, and only then can it get the deploy role (which trusts this
+  # environment on main, see infra/pixiu/bootstrap/github_oidc.tf). It plans again after the
+  # approval and applies that exact plan. A new digest changes the node's user data, so every
+  # deploy replaces the node
   platform-apply:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: image-push
+    needs: [image-push, platform-plan-main]
     runs-on: ubuntu-latest
     environment: platform
     # One apply at a time, never cancelled midway: a cancelled apply can leave AWS half changed
@@ -325,20 +359,10 @@ jobs:
         env:
           IMAGE_DIGEST: ${{ needs.image-push.outputs.digest }}
         run: |
-          rows=$(terraform show -json plan.bin | jq -r '.resource_changes[]
-            | select(.change.actions != ["no-op"])
-            | "| `\(.address)` | \(.change.actions | join(" then ")) |"')
           {
-            echo "### Platform apply"
-            echo "Image \`$IMAGE_DIGEST\`"
+            bash plan-summary.sh plan.bin "Platform apply"
             echo
-            if [ -z "$rows" ]; then
-              echo "No changes"
-            else
-              echo "| Resource | Action |"
-              echo "|---|---|"
-              echo "$rows"
-            fi
+            echo "Image \`$IMAGE_DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
       # The saved plan and nothing else. If the state changed since the plan, Terraform refuses
       # the stale plan instead of applying something different
