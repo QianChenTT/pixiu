@@ -1,0 +1,16 @@
+# Every pod in pixiu is cut off from the network, in and out, unless a later policy allows a
+# path. k3s's built-in controller enforces it. The API calls nothing outside itself, so even DNS
+# stays blocked. Traffic from the pod's own node is always let in, which keeps the kubelet's
+# probes working
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: pixiu
+spec:
+  # An empty selector picks every pod in the namespace, including ones added later
+  podSelector: {}
+  # Both directions are listed and no rule allows anything, so both are denied
+  policyTypes:
+    - Ingress
+    - Egress
