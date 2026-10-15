@@ -6,3 +6,6 @@
 *.hcl    text eol=lf
 # Startup scripts run on Linux, where a CR at the end of the shebang line breaks the interpreter
 *.sh     text eol=lf
+# The k3s config files and manifests become the node's user data. A CRLF checkout would change
+# that text, and with it the instance, which is replaced on any user data change
+*.yaml   text eol=lf
