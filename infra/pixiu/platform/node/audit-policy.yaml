@@ -1,0 +1,6 @@
+# What the API server's audit log records. Metadata: who, which verb, which object and when,
+# without request or response bodies, so Secrets' values never land in the log
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+  - level: Metadata

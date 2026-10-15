@@ -1,0 +1,23 @@
+# /etc/rancher/k3s/config.yaml: k3s reads this at start. Each key is a k3s command-line flag
+
+# The admin kubeconfig k3s writes is readable by root only
+write-kubeconfig-mode: "0600"
+
+# Not used by the thin slice: Traefik (ingress) and ServiceLB (load balancer) each listen on the
+# node's ports, and Traefik's install jobs run as cluster-admin service accounts
+disable:
+  - traefik
+  - servicelb
+
+# Secrets are encrypted in the datastore, not just base64-encoded
+secrets-encryption: true
+
+kube-apiserver-arg:
+  # Pod Security "restricted" is the default for every namespace (exemptions in the file)
+  - "admission-control-config-file=/etc/rancher/k3s/psa.yaml"
+  # The API server's audit log: who did what to which object, kept on the node for now
+  - "audit-policy-file=/etc/rancher/k3s/audit-policy.yaml"
+  - "audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log"
+  - "audit-log-maxage=30"
+  - "audit-log-maxbackup=10"
+  - "audit-log-maxsize=100"
