@@ -1,5 +1,6 @@
-# Copy to backend.hcl (ignored by git). Same bucket as infra/pixiu/bootstrap:
-#   cp ../bootstrap/backend.hcl backend.hcl
+# Copy to backend.hcl (ignored by git) and fill in the same bucket as infra/pixiu/bootstrap.
+# Don't copy the bootstrap's backend.hcl: its key line would override platform.tfstate and point
+# this folder at the bootstrap's state, where a plan would want to destroy everything in it
 # Then: terraform init -backend-config=backend.hcl
 # CI passes the bucket with -backend-config="bucket=..." instead
 
