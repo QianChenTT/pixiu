@@ -18,7 +18,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,7 +37,7 @@ jobs:
   # Its own gate, so a rule that reads a real event wrong, or a normalizer change, reddens
   # here and not only in the unit tests. The test job above excludes these with -m "not replay"
   replay:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +54,7 @@ jobs:
 
   # SCA: the declared runtime dependencies against known advisories
   sca:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,7 +69,7 @@ jobs:
         run: pip-audit -r requirements.txt --require-hashes --disable-pip
 
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -83,7 +83,7 @@ jobs:
   # p/python alone missed eval, pickle and verify=False in a probe of known-bad code
   # and p/security-audit adds them (audit rules flag patterns for review, expect false positives to emerge in the future)
   sast:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
       # Semgrep CLI image pinned by digest
       image: semgrep/semgrep@sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b # 1.178.0
@@ -126,7 +126,7 @@ jobs:
   # Config scan: the Terraform and the Dockerfile (and the Kubernetes manifests once they exist)
   # against Trivy's misconfiguration checks. Given the checkout read-only
   config-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,7 +152,7 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       # Lets the job ask GitHub for the signed token AWS swaps for the plan role
@@ -203,7 +203,7 @@ jobs:
   platform-plan-main:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: image-push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
@@ -316,7 +316,7 @@ jobs:
   platform-apply:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [image-push, platform-plan-main]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: platform
     # One apply at a time, never cancelled midway: a cancelled apply can leave AWS half changed
     # and the state lock behind. GitHub keeps one waiting run per group, so a newer merge
