@@ -16,7 +16,7 @@ permissions: {}
 
 jobs:
   no-environment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       # Lets this job ask GitHub for the signed token that says which repo and branch it runs on.
       # It grants nothing in the repo itself
@@ -35,7 +35,7 @@ jobs:
         run: aws sts get-caller-identity --query Arn --output text
 
   in-environment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: platform
     permissions:
       id-token: write
